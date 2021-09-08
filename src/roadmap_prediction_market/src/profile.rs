@@ -1,66 +1,62 @@
-use ic_cdk::export::{
-    candid::{CandidType, Deserialize},
-    Principal,
-};
-use ic_cdk::storage;
+use crate::types::Profile;
+use crate::{RuntimeState, RUNTIME_STATE};
 use ic_cdk_macros::*;
-use std::collections::BTreeMap;
-
-type IdStore = BTreeMap<String, Principal>;
-type ProfileStore = BTreeMap<Principal, Profile>;
-
-#[derive(Clone, Debug, Default, CandidType, Deserialize)]
-struct Profile {
-    pub name: String,
-    pub description: String,
-    pub keywords: Vec<String>,
-}
 
 #[query(name = "getSelf")]
-fn get_self() -> Profile {
-    let id = ic_cdk::caller();
-    let profile_store = storage::get::<ProfileStore>();
-
-    profile_store
-        .get(&id)
-        .cloned()
-        .unwrap_or_else(|| Profile::default())
+fn get_self() -> Option<Profile> {
+    RUNTIME_STATE.with(|state| get_self_impl(state.borrow_mut().as_mut().unwrap()))
 }
 
-#[query]
-fn get(name: String) -> Profile {
-    let id_store = storage::get::<IdStore>();
-    let profile_store = storage::get::<ProfileStore>();
+fn get_self_impl(state: &mut RuntimeState) -> Option<Profile> {
+    let principal = state.env.caller();
 
-    id_store
+    state.data.profiles.get(&principal).cloned()
+}
+
+#[update(name = "updateSelf")]
+fn update_self(profile: Profile) {
+    RUNTIME_STATE.with(|state| update_self_impl(profile, state.borrow_mut().as_mut().unwrap()))
+}
+
+fn update_self_impl(profile: Profile, state: &mut RuntimeState) {
+    let principal = state.env.caller();
+
+    state
+        .data
+        .profile_index
+        .insert(profile.name.clone(), principal.clone());
+    state.data.profiles.insert(principal, profile);
+}
+
+#[query(name = "getProfile")]
+fn get_profile(name: String) -> Option<Profile> {
+    RUNTIME_STATE.with(|state| get_profile_impl(name, state.borrow_mut().as_mut().unwrap()))
+}
+
+fn get_profile_impl(name: String, state: &mut RuntimeState) -> Option<Profile> {
+    state
+        .data
+        .profile_index
         .get(&name)
-        .and_then(|id| profile_store.get(id).cloned())
-        .unwrap_or_else(|| Profile::default())
+        .and_then(|principal| state.data.profiles.get(principal).cloned())
 }
 
-#[update]
-fn update(profile: Profile) {
-    let principal_id = ic_cdk::caller();
-    let id_store = storage::get_mut::<IdStore>();
-    let profile_store = storage::get_mut::<ProfileStore>();
-
-    id_store.insert(profile.name.clone(), principal_id.clone());
-    profile_store.insert(principal_id, profile);
+#[query(name = "searchProfile")]
+fn search_profile(text: String) -> Option<Profile> {
+    RUNTIME_STATE.with(|state| search_profile_impl(text, state.borrow_mut().as_mut().unwrap()))
 }
 
-#[query]
-fn search(text: String) -> Option<&'static Profile> {
+fn search_profile_impl(text: String, state: &mut RuntimeState) -> Option<Profile> {
     let text = text.to_lowercase();
-    let profile_store = storage::get::<ProfileStore>();
 
-    for (_, p) in profile_store.iter() {
+    for p in state.data.profiles.values() {
         if p.name.to_lowercase().contains(&text) || p.description.to_lowercase().contains(&text) {
-            return Some(p);
+            return Some(p.clone());
         }
 
         for x in p.keywords.iter() {
             if x.to_lowercase() == text {
-                return Some(p);
+                return Some(p.clone());
             }
         }
     }

@@ -1,71 +1,39 @@
-// mod profile;
+mod env;
+mod profile;
+mod types;
 
-use ic_cdk::export::{
-    candid::{CandidType, Deserialize},
-    Principal,
-};
-use ic_cdk::storage;
-use ic_cdk_macros::*;
-use std::collections::BTreeMap;
+use crate::types::Profile;
+use env::{CanisterEnvironment, Environment};
+use ic_cdk::export::Principal;
+use ic_cdk_macros::init;
+use std::{cell::RefCell, collections::HashMap};
 
-type IdStore = BTreeMap<String, Principal>;
-type ProfileStore = BTreeMap<Principal, Profile>;
-
-#[derive(Clone, Debug, Default, CandidType, Deserialize)]
-struct Profile {
-    pub name: String,
-    pub description: String,
-    pub keywords: Vec<String>,
+thread_local! {
+    pub static RUNTIME_STATE: RefCell<Option<RuntimeState>> = RefCell::default();
 }
 
-#[query(name = "getSelf")]
-fn get_self() -> Profile {
-    let id = ic_cdk::caller();
-    let profile_store = storage::get::<ProfileStore>();
+#[init]
+fn init() {
+    let env = CanisterEnvironment {};
+    let data = Data::default();
+    let runtime_state = RuntimeState::new(Box::new(env), data);
 
-    profile_store
-        .get(&id)
-        .cloned()
-        .unwrap_or_else(|| Profile::default())
+    RUNTIME_STATE.with(|state| *state.borrow_mut() = Some(runtime_state));
 }
 
-#[query]
-fn get(name: String) -> Profile {
-    let id_store = storage::get::<IdStore>();
-    let profile_store = storage::get::<ProfileStore>();
-
-    id_store
-        .get(&name)
-        .and_then(|id| profile_store.get(id).cloned())
-        .unwrap_or_else(|| Profile::default())
+pub struct RuntimeState {
+    pub env: Box<dyn Environment>,
+    pub data: Data,
 }
 
-#[update]
-fn update(profile: Profile) {
-    let principal_id = ic_cdk::caller();
-    let id_store = storage::get_mut::<IdStore>();
-    let profile_store = storage::get_mut::<ProfileStore>();
-
-    id_store.insert(profile.name.clone(), principal_id.clone());
-    profile_store.insert(principal_id, profile);
-}
-
-#[query]
-fn search(text: String) -> Option<&'static Profile> {
-    let text = text.to_lowercase();
-    let profile_store = storage::get::<ProfileStore>();
-
-    for (_, p) in profile_store.iter() {
-        if p.name.to_lowercase().contains(&text) || p.description.to_lowercase().contains(&text) {
-            return Some(p);
-        }
-
-        for x in p.keywords.iter() {
-            if x.to_lowercase() == text {
-                return Some(p);
-            }
-        }
+impl RuntimeState {
+    pub fn new(env: Box<dyn Environment>, data: Data) -> RuntimeState {
+        RuntimeState { env, data }
     }
+}
 
-    None
+#[derive(Default)]
+pub struct Data {
+    profiles: HashMap<Principal, Profile>,
+    profile_index: HashMap<String, Principal>,
 }
