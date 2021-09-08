@@ -63,6 +63,32 @@ fn market_status(market: Market) -> MarketStatus {
     }
 }
 
+#[query(name = "buyingPower")]
+fn buying_power(market: MarketName, share: Share) -> f64 {
+    RUNTIME_STATE
+        .with(|state| buying_power_impl(market, share, state.borrow_mut().as_mut().unwrap()))
+}
+
+fn buying_power_impl(market: MarketName, share: Share, state: &mut RuntimeState) -> f64 {
+    let market = match state.data.markets.get(&market) {
+        Some(market) => market,
+        None => return 0.0,
+    };
+
+    let principal = state.env.caller();
+    let account = match state
+        .data
+        .profiles
+        .get(&principal)
+        .map(|(_, account)| account)
+    {
+        Some(account) => account,
+        None => return 0.0,
+    };
+
+    buying_power_(market, share, account.tokens)
+}
+
 #[update]
 fn buy(market: MarketName, share: Share, amount: f64) -> Response {
     RUNTIME_STATE
@@ -237,15 +263,40 @@ fn checked_sub(left: f64, right: f64) -> Result<f64, ()> {
     }
 }
 
+/// Computes how many shares of the given tyoe on the given market can be bought with the
+/// given amount of tokens.
+fn buying_power_(market: &Market, share: Share, tokens: f64) -> f64 {
+    assert!(tokens > EPSILON);
+
+    let yes_weight = (market.yes_shares / B).exp();
+    let no_weight = (market.no_shares / B).exp();
+    let weight_before = yes_weight + no_weight;
+    let cost_before = B * weight_before.ln();
+
+    let cost_after = cost_before + tokens;
+    let weight_after = (cost_after / B).exp();
+
+    let weight_delta = weight_after - weight_before;
+
+    match share {
+        Share::Yes => B * (yes_weight + weight_delta).ln() - market.yes_shares,
+        Share::No => B * (no_weight + weight_delta).ln() - market.no_shares,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use ic_cdk::export::Principal;
 
     use super::*;
-    use crate::env::TestEnvironment;
+    use crate::{
+        api::profile::{get_account_impl, join_impl},
+        env::TestEnvironment,
+        types::Profile,
+    };
 
     #[test]
-    fn foo() {
+    fn test_get_market() {
         let mut state = RuntimeState::new(
             Box::new(TestEnvironment {
                 now: 0,
@@ -260,5 +311,48 @@ mod tests {
         );
         assert!(state.data.markets.get("name").is_some());
         assert!(get_market_impl("name".into(), &mut state).is_some());
+    }
+
+    #[test]
+    fn test_buying_power() {
+        let mut state = RuntimeState::new(
+            Box::new(TestEnvironment {
+                now: 0,
+                caller: Principal::anonymous(),
+            }),
+            Default::default(),
+        );
+
+        assert_eq!(
+            Response::Success,
+            new_market_impl("name".into(), "description".into(), &mut state)
+        );
+        assert_eq!(
+            Response::Success,
+            join_impl(
+                Profile {
+                    name: "p name".into(),
+                    description: "p description".into()
+                },
+                &mut state
+            )
+        );
+        assert_eq!(
+            Response::Success,
+            buy_impl("name".into(), Share::Yes, 10.0, &mut state)
+        );
+        let account = get_account_impl(&mut state).unwrap();
+        let market = get_market_impl("name".into(), &mut state).unwrap().market;
+
+        // How many `Yes` shares we can buy for all of the remaining tokens.
+        let buying_power = buying_power_(&market, Share::Yes, account.tokens);
+        assert_eq!(
+            Response::Success,
+            buy_impl("name".into(), Share::Yes, buying_power, &mut state)
+        );
+        let account = get_account_impl(&mut state).unwrap();
+
+        // We should have no tokens left.
+        assert_eq!(0.0, account.tokens);
     }
 }

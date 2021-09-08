@@ -8,7 +8,7 @@ fn join(profile: Profile) -> Response {
     RUNTIME_STATE.with(|state| join_impl(profile, state.borrow_mut().as_mut().unwrap()))
 }
 
-fn join_impl(profile: Profile, state: &mut RuntimeState) -> Response {
+pub fn join_impl(profile: Profile, state: &mut RuntimeState) -> Response {
     let principal = state.env.caller();
 
     if state.data.profiles.contains_key(&principal) {
@@ -93,7 +93,7 @@ fn get_account() -> Option<Account> {
     RUNTIME_STATE.with(|state| get_account_impl(state.borrow_mut().as_mut().unwrap()))
 }
 
-fn get_account_impl(state: &mut RuntimeState) -> Option<Account> {
+pub fn get_account_impl(state: &mut RuntimeState) -> Option<Account> {
     let principal = state.env.caller();
 
     state

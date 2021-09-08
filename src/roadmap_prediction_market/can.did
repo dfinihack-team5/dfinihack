@@ -52,6 +52,7 @@ service : {
     "getMarkets": () -> (vec MarketStatus) query;
     "resolveMarket": (name: MarketName, outcome: Share) -> (Response);
 
+    "buyingPower": (market: MarketName, share: Share) -> (float64) query;
     "buy": (market: MarketName, share: Share, amount: float64) -> (Response);
     "sell": (market: MarketName, share: Share, amount: float64) -> (Response);
 }
