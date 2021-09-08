@@ -1,0 +1,4 @@
+[workspace]
+members = [
+  "src/roadmap_prediction_market",
+]

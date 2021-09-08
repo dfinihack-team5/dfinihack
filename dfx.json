@@ -1,0 +1,30 @@
+{
+  "canisters": {
+    "roadmap_prediction_market": {
+      "build": "cargo build --target wasm32-unknown-unknown --package roadmap_prediction_market --release",
+      "candid": "src/roadmap_prediction_market/can.did",
+      "wasm": "target/wasm32-unknown-unknown/release/roadmap_prediction_market.wasm",
+      "type": "custom"
+    },
+    "roadmap_prediction_market_assets": {
+      "dependencies": [
+        "roadmap_prediction_market"
+      ],
+      "frontend": {
+        "entrypoint": "src/roadmap_prediction_market_assets/src/index.html"
+      },
+      "source": [
+        "src/roadmap_prediction_market_assets/assets",
+        "dist/roadmap_prediction_market_assets/"
+      ],
+      "type": "assets"
+    }
+  },
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:8000",
+      "type": "ephemeral"
+    }
+  },
+  "version": 1
+}
