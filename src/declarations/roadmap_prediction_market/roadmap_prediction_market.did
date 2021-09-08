@@ -4,9 +4,22 @@ type Profile = record {
     "keywords": vec text;
 };
 
+type Account = record {
+    "tokens": float64;
+};
+
+type Response = variant {
+    Success;
+    Error: text;
+}
+
 service : {
-    "getSelf": () -> (opt Profile) query;
-    "updateSelf": (Profile) -> ();
+    "join": (Profile) -> (Response);
+    "updateProfile": (Profile) -> (Response);
+
+    "getSelf": () -> (opt record {Profile; Account}) query;
     "getProfile": (text) -> (opt Profile) query;
+    "getAccount": () -> (opt Account) query;
+
     "searchProfile": (text) -> (opt Profile) query;
 }
