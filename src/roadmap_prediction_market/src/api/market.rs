@@ -33,20 +33,34 @@ fn get_market(name: MarketName) -> Option<MarketStatus> {
 }
 
 fn get_market_impl(name: MarketName, state: &mut RuntimeState) -> Option<MarketStatus> {
-    let market = match state.data.markets.get(&name) {
-        Some(market) => market,
-        None => return None,
-    };
+    state.data.markets.get(&name).cloned().map(market_status)
+}
 
+#[query(name = "getMarkets")]
+fn get_markets() -> Vec<MarketStatus> {
+    RUNTIME_STATE.with(|state| get_markets_impl(state.borrow_mut().as_mut().unwrap()))
+}
+
+fn get_markets_impl(state: &mut RuntimeState) -> Vec<MarketStatus> {
+    state
+        .data
+        .markets
+        .values()
+        .cloned()
+        .map(market_status)
+        .collect()
+}
+
+fn market_status(market: Market) -> MarketStatus {
     let yes_weight = (market.yes_shares / B).exp();
     let no_weight = (market.no_shares / B).exp();
     let total_weight = yes_weight + no_weight;
 
-    Some(MarketStatus {
-        market: market.clone(),
+    MarketStatus {
+        market,
         yes_price: yes_weight / total_weight,
         no_price: no_weight / total_weight,
-    })
+    }
 }
 
 #[update]

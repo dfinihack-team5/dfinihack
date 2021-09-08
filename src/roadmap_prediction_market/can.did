@@ -49,6 +49,7 @@ service : {
 
     "newMarket": (name: MarketName, description: text) -> (Response);
     "getMarket": (name: MarketName) -> (opt MarketStatus) query;
+    "getMarkets": () -> (vec MarketStatus) query;
     "resolveMarket": (name: MarketName, outcome: Share) -> (Response);
 
     "buy": (market: MarketName, share: Share, amount: float64) -> (Response);
