@@ -58,7 +58,7 @@ fn buy(market: MarketName, share: Share, amount: f64) -> Response {
 fn buy_impl(market: MarketName, share: Share, amount: f64, state: &mut RuntimeState) -> Response {
     assert!(amount > 0.0);
 
-    let market = match state.data.markets.get(&market) {
+    let market = match state.data.markets.get_mut(&market) {
         Some(market) => market,
         None => return Response::Error("Market not found"),
     };
@@ -89,6 +89,10 @@ fn buy_impl(market: MarketName, share: Share, amount: f64, state: &mut RuntimeSt
     account.tokens -= cost;
     if account.tokens < EPSILON {
         account.tokens = 0.0;
+    }
+    match share {
+        Share::Yes => market.yes_shares += amount,
+        Share::No => market.no_shares += amount,
     }
 
     for position in account.positions.iter_mut() {
