@@ -25,7 +25,7 @@ fn new_market_impl(name: MarketName, description: String, state: &mut RuntimeSta
 
 /// The `b` parameter, as defined at https://www.cultivatelabs.com/prediction-markets-guide/how-does-logarithmic-market-scoring-rule-lmsr-work
 const B: f64 = 10.0;
-const EPSILON: f64 = 1e-9;
+const EPSILON: f64 = 1e-6;
 
 #[query(name = "getMarket")]
 fn get_market(name: MarketName) -> Option<MarketStatus> {
@@ -96,14 +96,13 @@ fn buy_impl(market: MarketName, share: Share, amount: f64, state: &mut RuntimeSt
     }
 
     let cost = trade_cost(market, share, amount);
-    if cost > account.tokens + EPSILON {
-        return Response::Error("Not enough funds");
-    }
 
-    account.tokens -= cost;
-    if account.tokens < EPSILON {
-        account.tokens = 0.0;
-    }
+    let remaining_tokens = match checked_sub(account.tokens, cost) {
+        Ok(remaining) => remaining,
+        Err(()) => return Response::Error("Not enough funds"),
+    };
+    account.tokens = remaining_tokens;
+
     match share {
         Share::Yes => market.yes_shares += amount,
         Share::No => market.no_shares += amount,
@@ -114,6 +113,67 @@ fn buy_impl(market: MarketName, share: Share, amount: f64, state: &mut RuntimeSt
         .entry(market.name.clone())
         .or_insert(Position { share, amount: 0.0 })
         .amount += amount;
+    Response::Success
+}
+
+#[update]
+fn sell(market: MarketName, share: Share, amount: f64) -> Response {
+    RUNTIME_STATE
+        .with(|state| sell_impl(market, share, amount, state.borrow_mut().as_mut().unwrap()))
+}
+
+fn sell_impl(market: MarketName, share: Share, amount: f64, state: &mut RuntimeState) -> Response {
+    assert!(amount > 0.0);
+
+    let market = match state.data.markets.get_mut(&market) {
+        Some(market) => market,
+        None => return Response::Error("Market not found"),
+    };
+
+    let principal = state.env.caller();
+    let account = match state
+        .data
+        .profiles
+        .get_mut(&principal)
+        .map(|(_, account)| account)
+    {
+        Some(account) => account,
+        None => return Response::Error("No account, must join first"),
+    };
+
+    let mut position = match account.positions.entry(market.name.clone()) {
+        std::collections::btree_map::Entry::Vacant(_) => {
+            return Response::Error("Short selling is not supported")
+        }
+        std::collections::btree_map::Entry::Occupied(position) => {
+            if position.get().share != share {
+                return Response::Error("Account owns opposite share");
+            }
+            position
+        }
+    };
+
+    let remaining_amount = match checked_sub(position.get().amount, amount) {
+        Ok(remaining) => remaining,
+        Err(()) => return Response::Error("Not enough shares"),
+    };
+
+    let tokens = -trade_cost(market, share, -amount);
+    assert!(tokens > 0.0);
+
+    account.tokens += tokens;
+    if remaining_amount == 0.0 {
+        position.remove();
+    } else {
+        position.get_mut().amount = remaining_amount;
+    }
+
+    // TODO: Return an error instead of unwrapping.
+    match share {
+        Share::Yes => market.yes_shares = checked_sub(market.yes_shares, amount).unwrap(),
+        Share::No => market.no_shares = checked_sub(market.no_shares, amount).unwrap(),
+    }
+
     Response::Success
 }
 
@@ -153,12 +213,28 @@ fn trade_cost(market: &Market, share: Share, amount: f64) -> f64 {
 
 /// The cost function, as defined at https://www.cultivatelabs.com/prediction-markets-guide/how-does-logarithmic-market-scoring-rule-lmsr-work
 fn cost(yes_shares: f64, no_shares: f64) -> f64 {
-    assert!(yes_shares >= 0.0);
-    assert!(no_shares >= 0.0);
+    assert!(yes_shares >= -EPSILON);
+    assert!(no_shares >= -EPSILON);
 
     let yes_weight = (yes_shares / B).exp();
     let no_weight = (no_shares / B).exp();
     B * (yes_weight + no_weight).ln()
+}
+
+/// Calculates `left - right`, rounding to zero values between `[-EPSILON..EPSILON]` and
+/// returning an error if the result is negative.
+fn checked_sub(left: f64, right: f64) -> Result<f64, ()> {
+    assert!(left > EPSILON);
+    assert!(right > EPSILON);
+
+    let res = left - right;
+    if res < -EPSILON {
+        Err(())
+    } else if res < EPSILON {
+        Ok(0.0)
+    } else {
+        Ok(res)
+    }
 }
 
 #[cfg(test)]
