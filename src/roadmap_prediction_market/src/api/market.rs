@@ -75,17 +75,17 @@ fn buy_impl(market: MarketName, share: Share, amount: f64, state: &mut RuntimeSt
     };
 
     // TODO: Sell the opposite share instead.
-    for position in account.positions.iter_mut() {
-        if position.market == market.name && position.share != share {
+    if let Some(position) = account.positions.get(&market.name) {
+        if position.share != share {
             return Response::Error("Account already owns opposite share");
         }
     }
 
     let cost = trade_cost(market, share, amount);
-
     if cost > account.tokens + EPSILON {
         return Response::Error("Not enough funds");
     }
+
     account.tokens -= cost;
     if account.tokens < EPSILON {
         account.tokens = 0.0;
@@ -95,17 +95,36 @@ fn buy_impl(market: MarketName, share: Share, amount: f64, state: &mut RuntimeSt
         Share::No => market.no_shares += amount,
     }
 
-    for position in account.positions.iter_mut() {
-        if position.market == market.name && position.share == share {
-            position.amount += amount;
-            return Response::Success;
+    account
+        .positions
+        .entry(market.name.clone())
+        .or_insert(Position { share, amount: 0.0 })
+        .amount += amount;
+    Response::Success
+}
+
+#[update(name = "resolveMarket")]
+fn resolve_market(market: MarketName, outcome: Share) -> Response {
+    RUNTIME_STATE
+        .with(|state| resolve_market_impl(market, outcome, state.borrow_mut().as_mut().unwrap()))
+}
+
+fn resolve_market_impl(market: MarketName, outcome: Share, state: &mut RuntimeState) -> Response {
+    let market = match state.data.markets.entry(market) {
+        std::collections::btree_map::Entry::Vacant(_) => {
+            return Response::Error("Market not found")
+        }
+        std::collections::btree_map::Entry::Occupied(e) => e.remove(),
+    };
+
+    for (_, (_, account)) in state.data.profiles.iter_mut() {
+        if let Some(position) = account.positions.remove(&market.name) {
+            if position.share == outcome {
+                account.tokens += position.amount;
+            }
         }
     }
-    account.positions.push(Position {
-        market: market.name.clone(),
-        share,
-        amount,
-    });
+
     Response::Success
 }
 

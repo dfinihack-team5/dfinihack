@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use ic_cdk::export::candid::{CandidType, Deserialize};
 
 #[derive(Clone, Debug, Default, CandidType, Deserialize)]
@@ -42,7 +44,6 @@ pub enum Share {
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
 pub struct Position {
-    pub market: MarketName,
     pub share: Share,
     pub amount: f64,
 }
@@ -51,14 +52,14 @@ pub struct Position {
 pub struct Account {
     // Token balance.
     pub tokens: f64,
-    pub positions: Vec<Position>,
+    pub positions: BTreeMap<MarketName, Position>,
 }
 
 impl Default for Account {
     fn default() -> Self {
         Self {
             tokens: 100.0,
-            positions: vec![],
+            positions: BTreeMap::new(),
         }
     }
 }
