@@ -1,12 +1,12 @@
+mod api;
 mod env;
-mod profile;
 mod types;
 
 use env::{CanisterEnvironment, Environment};
-use types::{Account, Profile};
+use types::{Account, Market, Profile};
 
 use ic_cdk::export::Principal;
-use ic_cdk_macros::init;
+use ic_cdk_macros::*;
 use std::{cell::RefCell, collections::HashMap};
 
 thread_local! {
@@ -14,7 +14,9 @@ thread_local! {
 }
 
 #[init]
+#[post_upgrade]
 fn init() {
+    ic_cdk::print("init() called");
     let env = CanisterEnvironment {};
     let data = Data::default();
     let runtime_state = RuntimeState::new(Box::new(env), data);
@@ -37,4 +39,5 @@ impl RuntimeState {
 pub struct Data {
     profiles: HashMap<Principal, (Profile, Account)>,
     profile_index: HashMap<String, Principal>,
+    markets: HashMap<String, Market>,
 }

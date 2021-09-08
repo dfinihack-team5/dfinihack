@@ -116,12 +116,6 @@ fn search_profile_impl(text: String, state: &mut RuntimeState) -> Option<Profile
         if p.name.to_lowercase().contains(&text) || p.description.to_lowercase().contains(&text) {
             return Some(p.clone());
         }
-
-        for x in p.keywords.iter() {
-            if x.to_lowercase() == text {
-                return Some(p.clone());
-            }
-        }
     }
 
     None

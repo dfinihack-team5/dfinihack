@@ -1,25 +1,50 @@
 type Profile = record {
     "name": text;
     "description": text;
-    "keywords": vec text;
-};
-
-type Account = record {
-    "tokens": float64;
 };
 
 type Response = variant {
     Success;
     Error: text;
-}
+};
+
+type MarketName = text;
+
+type Market = record {
+    "name": MarketName;
+    "description": text;
+    "yes_shares": float64;
+    "no_shares": float64;
+};
+
+type Share = variant {
+    Yes;
+    No;
+};
+
+type Shares = record {
+    "market": MarketName;
+    "share": Share;
+    "amount": float64;
+};
+
+type Account = record {
+    "tokens": float64;
+    "shares": vec Shares;
+};
 
 service : {
     "join": (Profile) -> (Response);
     "updateProfile": (Profile) -> (Response);
 
     "getSelf": () -> (opt record {Profile; Account}) query;
-    "getProfile": (text) -> (opt Profile) query;
+    "getProfile": (name: text) -> (opt Profile) query;
     "getAccount": () -> (opt Account) query;
+    "searchProfile": (substring: text) -> (opt Profile) query;
 
-    "searchProfile": (text) -> (opt Profile) query;
+    "newMarket": (name: MarketName, description: text) -> (Response);
+    "getMarket": (name: MarketName) -> (opt record {Market; yes_price: float64; no_price: float64}) query;
+
+    "buy": (market: MarketName, share: Share, amount: float64) -> (Response);
+    "sell": (market: MarketName, share: Share, amount: float64) -> (Response);
 }
