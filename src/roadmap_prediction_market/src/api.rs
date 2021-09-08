@@ -1,2 +1,2 @@
 mod market;
-mod profile;
+pub mod profile;

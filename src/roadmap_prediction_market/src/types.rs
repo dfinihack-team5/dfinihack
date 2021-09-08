@@ -34,14 +34,14 @@ pub struct MarketStatus {
     pub no_price: f64,
 }
 
-#[derive(Clone, Debug, CandidType, Deserialize)]
+#[derive(Clone, Debug, CandidType, Deserialize, PartialEq, Eq, Copy)]
 pub enum Share {
     Yes,
     No,
 }
 
 #[derive(Clone, Debug, CandidType, Deserialize)]
-pub struct Shares {
+pub struct Position {
     pub market: MarketName,
     pub share: Share,
     pub amount: f64,
@@ -51,14 +51,14 @@ pub struct Shares {
 pub struct Account {
     // Token balance.
     pub tokens: f64,
-    pub shares: Vec<Shares>,
+    pub positions: Vec<Position>,
 }
 
 impl Default for Account {
     fn default() -> Self {
         Self {
             tokens: 100.0,
-            shares: vec![],
+            positions: vec![],
         }
     }
 }

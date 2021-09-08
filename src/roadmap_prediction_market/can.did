@@ -28,7 +28,7 @@ type Share = variant {
     No;
 };
 
-type Shares = record {
+type Position = record {
     "market": MarketName;
     "share": Share;
     "amount": float64;
@@ -36,7 +36,7 @@ type Shares = record {
 
 type Account = record {
     "tokens": float64;
-    "shares": vec Shares;
+    "positions": vec Position;
 };
 
 service : {

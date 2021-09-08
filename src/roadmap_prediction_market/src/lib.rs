@@ -7,7 +7,10 @@ use types::{Account, Market, Profile};
 
 use ic_cdk::export::Principal;
 use ic_cdk_macros::*;
-use std::{cell::RefCell, collections::HashMap};
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, HashMap},
+};
 
 thread_local! {
     pub static RUNTIME_STATE: RefCell<Option<RuntimeState>> = RefCell::default();
@@ -39,5 +42,5 @@ impl RuntimeState {
 pub struct Data {
     profiles: HashMap<Principal, (Profile, Account)>,
     profile_index: HashMap<String, Principal>,
-    markets: HashMap<String, Market>,
+    markets: BTreeMap<String, Market>,
 }
