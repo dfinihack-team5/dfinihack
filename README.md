@@ -1,26 +1,37 @@
-# roadmap_prediction_market
+# Roadmap Prediction Market
 
-Welcome to your new roadmap_prediction_market project and to the internet computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.
+Welcome to the Roadmap Prediction Market Dapp built for the 2021 DFINIHacks Hackathon!
 
-To get started, you might want to explore the project directory structure and the default configuration file. Working with this project in your development environment will not affect any production deployment or identity tokens.
+## About
 
-To learn more before you start working with roadmap_prediction_market, see the following documentation available online:
+### The Current Problem
 
-- [Quick Start](https://sdk.dfinity.org/docs/quickstart/quickstart-intro.html)
-- [SDK Developer Tools](https://sdk.dfinity.org/docs/developers-guide/sdk-guide.html)
-- [Motoko Programming Language Guide](https://sdk.dfinity.org/docs/language-guide/motoko.html)
-- [Motoko Language Quick Reference](https://sdk.dfinity.org/docs/language-guide/language-manual.html)
-- [JavaScript API Reference](https://erxue-5aaaa-aaaab-qaagq-cai.raw.ic0.app)
+Right now, members of the Internet Computer ecosystem have limited tools for signaling their sentiment on roadmap proposals.
 
-If you want to start working on your project right away, you might want to try the following commands:
+Users can view the [Roadmap microsite](https://dfinity.org/roadmap), [comment on the forum](https://forum.dfinity.org/t/direct-integration-with-bitcoin/6147/11), and [vote on proposals](https://dashboard.internetcomputer.org/proposal/18337), but have no way to signal their relative support for different proposals.
 
-```bash
-cd roadmap_prediction_market/
-dfx help
-dfx config --help
-```
+### The Proposed Solution
+The Roadmap Prediction Market dapp introduces a token-voting based system.
 
-## Running the project locally
+Each roadmap item becomes its own "market" where users can acquire tokens to signal their support for the given roadmap item.
+
+When the market reaches its maturity, the market participants will earn (or lose) rewards based on their positions in that market.
+
+### Features
+
+The Roadmap Prediction Market is (to our knowledge) the first Prediction Market deployed to the IC.
+
+The RPM uses a [logarithmic market scoring rule (LMSR)](https://www.cultivatelabs.com/prediction-markets-guide/how-does-logarithmic-market-scoring-rule-lmsr-work) to price shares in each market. The implementation of this LMSR mechanism can be found within the `cost` function of `src/api/market.rs`.
+
+Markets can be created by the canister deployer.
+
+Unfortunately there is no front end as of yet, but please feel free to implement one!
+
+---
+
+## Developing
+
+### Running the project locally
 
 If you want to test your project locally, you can use the following commands:
 
@@ -33,6 +44,14 @@ dfx deploy
 ```
 
 Once the job completes, your application will be available at `http://localhost:8000?canisterId={asset_canister_id}`.
+
+To deploy to the production Internet Computer network simply specify the IC network to deploy to
+
+```bash
+dfx deploy --network ic
+```
+
+### Interacting
 
 You can interact with it using `dfx canister call`:
 
@@ -47,6 +66,60 @@ dfx canister call roadmap_prediction_market getSelf
 This is based on the [Profile tutorial](https://sdk.dfinity.org/docs/rust-guide/rust-profile.html),
 using `roadmap_prediction_market` as a name instead of `rust_profile` so most of the commands there
 apply (with the changed canister name).
+
+### Adding New Markets
+Markets are simple records with a name and description. To initialze a new market make the following canister call:
+
+```bash
+dfx canister --network ic call roadmap_prediction_market newMarket '("Badlands", "Badlands is a concept that involves applying Internet Computer technology to create a new network supported by amateur node providers, using low cost devices, that creates the maximum possible level of decentralization and censorship resistance for smart contracts.")'
+```
+
+### Getting Markets
+You can retreive markets with the `getMarket` call:
+
+```bash
+ dfx canister --network ic call roadmap_prediction_market getMarkets
+```
+
+Which will return all existing markets:
+```
+(
+  vec {
+    record {
+      no_price = 0.5 : float64;
+      yes_price = 0.5 : float64;
+      market = record {
+        name = "Badlands";
+        yes_shares = 0 : float64;
+        description = "Badlands is a concept that involves applying Internet Computer technology to create a new network supported by amateur node providers, using low cost devices, that creates the maximum possible level of decentralization and censorship resistance for smart contracts.";
+        no_shares = 0 : float64;
+      };
+    };
+    record {
+      no_price = 0.5 : float64;
+      yes_price = 0.5 : float64;
+      market = record {
+        name = "Custom domains for ic0.app";
+        yes_shares = 0 : float64;
+        description = "Current URLs for the Internet Computer are derived solely from Canister IDs, which are difficult for humans to remember. Discuss implementations and plans for custom domains.";
+        no_shares = 0 : float64;
+      };
+    };
+    record {
+      no_price = 0.5 : float64;
+      yes_price = 0.5 : float64;
+      market = record {
+        name = "Endorphin";
+        yes_shares = 0 : float64;
+        description = "Endorphin is a free and open crypto OS for smartphones and other end-user devices. The vision of Endorphin will allow the vast majority of dapps to be built using a combination of HTML, JavaScript, CSS, media, and WebAssembly — just like websites.";
+        no_shares = 0 : float64;
+      };
+    };
+  },
+)
+```
+
+## Front End
 
 Additionally, if you are making frontend changes, you can start a development server with
 
